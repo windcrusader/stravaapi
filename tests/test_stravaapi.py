@@ -35,3 +35,6 @@ def test_trimp_1():
     assert pytest.approx(NGS) == 13.6142532
     assert pytest.approx(IF) == 0.8924899
     assert TRIMP == pytest.approx(53.102557)
+
+def test_adf_factor():
+    assert api.adf_factor(20) == pytest.approx(2.2700112)  
