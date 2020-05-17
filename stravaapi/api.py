@@ -11,9 +11,12 @@ import numpy as np
 import datetime as dt
 from bisect import bisect_left, bisect_right
 import math
-from stravaapi import constants
+from stravaapi import constants, db_handler
 
 api = responder.API()
+db = db_handler.Ath_DB()
+#get the athlete DB
+
 
 #Some assertions to check for environment variables
 assert os.getenv("STRAVA_CLIENT_ID"), "No STRAVA_CLIENT_ID env variable set"
@@ -314,3 +317,23 @@ def getactivities(req, resp):
     #fig.write_image("fig1.svg")
     fig.write_image("fig1.png")
 
+    #add retrieved activities to sqlite database
+    save_act_to_db(activities)
+
+def save_act_to_db(activities):
+    #preprocess the table into a list of tuples for committing the DB
+    db_data = []
+    for index, row in activities.iterrows():
+
+        db_data.append((row['id'],
+                        row['start_date_local'],
+                        row['distance'],
+                        row['elapsed_time'],
+                        row['moving_time']
+                        ))
+                    
+    
+    logger.debug(db_data)
+    #commit to DB
+    db.conn.executemany('INSERT INTO activities VALUES (?,?,?,?,?)', db_data)
+    db.conn.commit()
