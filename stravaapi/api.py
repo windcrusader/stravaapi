@@ -11,35 +11,21 @@ import numpy as np
 import datetime as dt
 from bisect import bisect_left, bisect_right
 import math
+from stravaapi import constants
 
 api = responder.API()
 
-class Globals():
-      #create a path for storing the tokens
-    #home location
-    HOME = pathlib.Path.home()
-    #folder to store token
-    SAVEFILELOCATION = HOME / ".stravaapi" 
+#Some assertions to check for environment variables
+assert os.getenv("STRAVA_CLIENT_ID"), "No STRAVA_CLIENT_ID env variable set"
+assert os.getenv("STRAVA_CLIENT_SECRET"),\
+                "No STRAVA_CLIENT_SECRET env variable set"
 
-    #Some assertions to check for environment variables
-    assert os.getenv("STRAVA_CLIENT_ID"), "No STRAVA_CLIENT_ID env variable set"
-    assert os.getenv("STRAVA_CLIENT_SECRET"),\
-                    "No STRAVA_CLIENT_SECRET env variable set"
-
-    try:
-        # Create target Directory
-        os.mkdir(SAVEFILELOCATION)
-        print("Directory " , SAVEFILELOCATION,  " Created ") 
-    except FileExistsError:
-        print("Directory " , SAVEFILELOCATION,  " already exists")
-
-    #port for server
-    port = 5039
-
-    FTP = 3 * 60 + 56 #3:56/km based on parkrun on 18/01/20
-    FTS = 15.254237288135592
-
-    #using calculator at https://www.8020endurance.com/8020-zone-calculator/
+try:
+    # Create target Directory
+    os.mkdir(constants.SAVEFILELOCATION)
+    print("Directory " , constants.SAVEFILELOCATION,  " Created ") 
+except FileExistsError:
+    print("Directory " , constants.SAVEFILELOCATION,  " already exists")
 
 def adf_factor(x):
     """return an adjustment factor based on an fitted curve to the 
@@ -54,7 +40,7 @@ def authorize_url(redirect_to):
     params = {
         "client_id": os.getenv('STRAVA_CLIENT_ID'),
         "response_type": "code",
-        "redirect_uri": f"{app_url}:{Globals.port}/{redirect_to}",
+        "redirect_uri": f"{app_url}:{constants.PORT}/{redirect_to}",
         "scope": "read,profile:read_all,activity:read",
         "state": 'https://github.com/windcrusader/stravaapi',
         "approval_prompt": "force"
@@ -65,22 +51,18 @@ def authorize_url(redirect_to):
     logger.debug(rv)
     return rv
 
-
 @api.route("/")
 def home(req, resp):
     resp.text = "Welcome to strava-oauth"
-
 
 @api.route("/client")
 def client(req, resp):
     resp.text = os.getenv('STRAVA_CLIENT_ID')
 
-
 @api.route("/authorize")
 def authorize(req, resp):
     """Redirect user to the Strava Authorization page"""
     api.redirect(resp, location=authorize_url("authorization_successful"))
-
 
 @api.route("/authorization_successful")
 def authorization_successful(req, resp):
@@ -91,10 +73,10 @@ def authorization_successful(req, resp):
         "code": req.params.get('code'),
         "grant_type": "authorization_code"
     }
-    print(params)
+    logger.debug(params)
     r = requests.post("https://www.strava.com/oauth/token", params)
     logger.debug(r.text)
-    with open(Globals.SAVEFILELOCATION / "authsuccess.txt","w+") as wfile:
+    with open(constants.SAVEFILELOCATION / "authsuccess.txt","w+") as wfile:
          print(json.dumps(r.json()),file=wfile)
     resp.text = r.text
 
@@ -106,10 +88,10 @@ def refresh_token(ref_token):
         "grant_type": "refresh_token",
         "refresh_token": ref_token
     }
-    print(params)
+    logger.debug(params)
     r = requests.post("https://www.strava.com/api/v3/oauth/token", params)
     logger.debug(r.text)
-    with open(Globals.SAVEFILELOCATION / "authsuccess.txt","w+") as wfile:
+    with open(constants.SAVEFILELOCATION / "authsuccess.txt","w+") as wfile:
          print(json.dumps(r.json()),file=wfile)
     #resp.text = r.text
     return r.json()
@@ -176,14 +158,13 @@ def calctrimp(lap, altr):
     logger.debug(f"NGP = {format_pace(NGP)}")
 
     #calculate IF
-    IF = NGS / Globals.FTS
+    IF = NGS / constants.FTS
     logger.debug(f"IF={IF}")
 
     #calulate TRIMP
     TRIMP = lap['moving_time'] * IF**2 / 36
 
     return (TRIMP, alt_diff, calc_grad, pace, NGP, NGS, IF)
-
 
 #get a single activity by id
 @api.route("/getactivity")
@@ -234,11 +215,6 @@ def pace_2_speed(pace):
     """converts a pace in s/km to km/hr"""
     return 1/(pace / 60**2)
 
-def get_nearest_gap(gradient):
-    assert Globals.GAP is not None, "Gradient CSV file non existent"
-    index = bisect_left(Globals.GAP['gradient'].values, gradient)
-    return Globals.GAP['adjustment'].iloc[index]
-
 def read_gap_table():
     df = pd.read_csv("GAP.csv")
     #print(df.head())
@@ -246,7 +222,7 @@ def read_gap_table():
 
 def gettoken():
     #get token
-    with open(Globals.SAVEFILELOCATION / "authsuccess.txt","r") as wfile:
+    with open(constants.SAVEFILELOCATION / "authsuccess.txt","r") as wfile:
         auth_resp = wfile.read()
 
     auth_resp = json.loads(auth_resp)
@@ -268,8 +244,6 @@ def getactivities(req, resp):
     "Get user activities"
 
     auth_resp, valid_token = gettoken()
-
-
     #todo make this an input parameter
     dateafter = 1577782931
 
@@ -340,6 +314,3 @@ def getactivities(req, resp):
     #fig.write_image("fig1.svg")
     fig.write_image("fig1.png")
 
-if __name__ == "__main__":
-
-    api.run(address="0.0.0.0",port=Globals.port)
