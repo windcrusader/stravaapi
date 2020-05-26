@@ -14,9 +14,6 @@ import math
 from stravaapi import constants, db_handler
 
 api = responder.API()
-db = db_handler.Ath_DB()
-#get the athlete DB
-
 
 #Some assertions to check for environment variables
 assert os.getenv("STRAVA_CLIENT_ID"), "No STRAVA_CLIENT_ID env variable set"
@@ -29,6 +26,9 @@ try:
     print("Directory " , constants.SAVEFILELOCATION,  " Created ") 
 except FileExistsError:
     print("Directory " , constants.SAVEFILELOCATION,  " already exists")
+
+#get the athlete DB
+db = db_handler.Ath_DB()
 
 def adf_factor(x):
     """return an adjustment factor based on an fitted curve to the 
