@@ -197,10 +197,31 @@ def get_activities_detail(req, resp):
         if resrow == None or resrow2 == None:
             #missing the activity detailed data so get it.
             elev_st, laps = getactivitydetail(row['id'])
-            save_altr_to_db(row['id'], str(elev_st))
-            save_laps_to_db(row['id'], str(laps))
+            save_altr_to_db(row['id'], elev_st)
+            save_laps_to_db(row['id'], laps)
         #below for stopping at one activity for debugging.
         #return
+
+@api.route("/calctrimps")
+def calc_trimps(req, resp):
+    #open DB and read activities into a table
+    #Load the data into a DataFrame
+    act_df = pd.read_sql_query("SELECT * from activities", db.conn)
+    logger.debug(act_df)
+
+    for index, row in act_df.iterrows():
+        #get lap data
+        altr = db.conn.execute("select elev_stream from act_elevation where id=?",
+                                (row['id'],))
+        altr = json.loads(altr.fetchone()[0])
+        json_act = db.conn.execute("select lap_stream from act_lap where id=?",
+                                (row['id'],))
+        json_act = json.loads(json_act.fetchone()[0])
+        logger.debug(json_act)
+        activity_sum = [calctrimp(lap,altr) for lap in json_act]
+        activity_trimp = sum([item[0] for item in activity_sum])
+        logger.debug(activity_trimp)
+
 
 def getactivitydetail(id):
     """Get a user activity by ID"""
@@ -228,10 +249,7 @@ def getactivitydetail(id):
     altr = getaltitude(id)
     #convert to json
     altr = altr.json()
-    #todo move the below into a new function
-    #activity_sum = [calctrimp(lap,altr) for lap in json_act['laps']]
-    #sumtrimp_act = sum(activity_sum)
-    #logger.debug(sumtrimp_act)
+
     return altr, json_act['laps']
 
 def speed_2_pace(speed):
@@ -374,7 +392,7 @@ def save_act_to_db(activities):
 
 def save_altr_to_db(id, altr):
 
-    db_data = [id, altr]                 
+    db_data = [id, json.dumps(altr)]                 
     logger.debug(db_data)
     #commit to DB
     db.conn.execute('INSERT OR IGNORE INTO act_elevation VALUES \
@@ -384,7 +402,7 @@ def save_altr_to_db(id, altr):
 
 def save_laps_to_db(id, laps):
 
-    db_data = [id, laps]                 
+    db_data = [id, json.dumps(laps)]                 
     logger.debug(db_data)
     #commit to DB
     db.conn.execute('INSERT OR IGNORE INTO act_lap VALUES \
