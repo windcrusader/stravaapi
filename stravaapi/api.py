@@ -169,9 +169,29 @@ def calctrimp(lap, altr):
 
     return (TRIMP, alt_diff, calc_grad, pace, NGP, NGS, IF)
 
-#get a single activity by id
-@api.route("/getactivity")
-def getactivity(id):
+#run through activity DB and retrieve lap and elevation data from the API
+@api.route("/getactivitiesdetail")
+def get_activities_detail(req, resp):
+    """Reads all the activities in the database and then retrieves the
+    detailed lap and elevation data for each one.
+    The lap and elevation data is then saved to the database in seperate
+    tables.
+    """
+    #open DB and read activities into a table
+    # Load the data into a DataFrame
+    act_df = pd.read_sql_query("SELECT * from activities", db.conn)
+    logger.debug(act_df)
+
+    for index, row in act_df.iterrows():
+        logger.debug(f"Retrieving and saving detail for activity:\
+                     {row['id']}")
+        elev_st, laps = getactivitydetail(row['id'])
+        save_altr_to_db(row['id'], str(elev_st))
+        save_laps_to_db(row['id'], str(laps))
+        #below for stopping at one activity for debugging.
+        #return
+
+def getactivitydetail(id):
     """Get a user activity by ID"""
     #get token
     auth_resp, valid_token = gettoken()
@@ -190,17 +210,18 @@ def getactivity(id):
                      headers=headers)  
 
     if r.raise_for_status() is None: 
-        resp.text = "success"
+        #r.text = "success"
         json_act = r.json()
 
     #get the altitude stream
     altr = getaltitude(id)
     #convert to json
     altr = altr.json()
-    activity_sum = [calctrimp(lap,altr) for lap in json_act['laps']]
-    sumtrimp_act = sum(activity_sum)
-    logger.debug(sumtrimp_act)
-    return altr
+    #todo move the below into a new function
+    #activity_sum = [calctrimp(lap,altr) for lap in json_act['laps']]
+    #sumtrimp_act = sum(activity_sum)
+    #logger.debug(sumtrimp_act)
+    return altr, json_act['laps']
 
 def speed_2_pace(speed):
     """Convert speed in km/hr to pace in s/km"""
@@ -275,7 +296,8 @@ def getactivities(req, resp):
         for item in r.json():
             if item['type'] == 'Run':
                 newdict = {k: item[k] for k in col_names}
-                new_list.append(newdict)    
+                new_list.append(newdict)  
+                  
         df = pd.DataFrame(new_list)
         frames = [activities, df]
         activities = pd.concat(frames)
@@ -317,6 +339,8 @@ def getactivities(req, resp):
     #add retrieved activities to sqlite database
     save_act_to_db(activities)
 
+    #Get activity details
+
 def save_act_to_db(activities):
     #preprocess the table into a list of tuples for committing the DB
     db_data = []
@@ -334,5 +358,25 @@ def save_act_to_db(activities):
     #commit to DB
     db.conn.executemany('INSERT OR IGNORE INTO activities VALUES \
                         (?,?,?,?,?)',
+                         db_data)
+    db.conn.commit()
+
+def save_altr_to_db(id, altr):
+
+    db_data = [id, altr]                 
+    logger.debug(db_data)
+    #commit to DB
+    db.conn.execute('INSERT OR IGNORE INTO act_elevation VALUES \
+                        (?,?)',
+                         db_data)
+    db.conn.commit()
+
+def save_laps_to_db(id, laps):
+
+    db_data = [id, laps]                 
+    logger.debug(db_data)
+    #commit to DB
+    db.conn.execute('INSERT OR IGNORE INTO act_lap VALUES \
+                        (?,?)',
                          db_data)
     db.conn.commit()
