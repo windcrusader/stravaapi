@@ -27,6 +27,13 @@ class Ath_DB:
         if self.conn.execute(query).fetchone() is None:
             logger.debug("Activity elevation table not found in DB, creating it.")
             self.create_act_elev_table()
+
+        #check for the act_lap table  
+        query = ("SELECT name from sqlite_master"
+                " WHERE type='table' AND name='act_lap';")
+        if self.conn.execute(query).fetchone() is None:
+            logger.debug("Activity lap table not found in DB, creating it.")
+            self.create_act_lap_table()
     
     def create_act_table(self):
         query = ('''CREATE TABLE activities'''+
@@ -38,7 +45,14 @@ class Ath_DB:
 
     def create_act_elev_table(self):
         query = ('''CREATE TABLE act_elevation'''+
-                " (id integer, elev_stream text);")
+                " (id integer primary key, elev_stream text);")
+        logger.debug(query)
+        self.conn.execute(query)
+        self.conn.commit()
+
+    def create_act_lap_table(self):
+        query = ('''CREATE TABLE act_lap'''+
+                " (id integer primary key, lap_stream text);")
         logger.debug(query)
         self.conn.execute(query)
         self.conn.commit()

@@ -171,7 +171,7 @@ def calctrimp(lap, altr):
 
 #get a single activity by id
 @api.route("/getactivity")
-def getactivity(req, resp):
+def getactivity(id):
     """Get a user activity by ID"""
     #get token
     auth_resp, valid_token = gettoken()
@@ -179,7 +179,7 @@ def getactivity(req, resp):
     if not valid_token:
         auth_resp = refresh_token(auth_resp['refresh_token'])
 
-    id = 3431573159
+    #id = 3431573159
 
     act_url = f"https://www.strava.com/api/v3/activities/{id}"
     headers={'Authorization': f"Bearer {auth_resp['access_token']}"}
@@ -188,7 +188,6 @@ def getactivity(req, resp):
     r = requests.get(act_url,
                      params,
                      headers=headers)  
-
 
     if r.raise_for_status() is None: 
         resp.text = "success"
@@ -199,11 +198,9 @@ def getactivity(req, resp):
     #convert to json
     altr = altr.json()
     activity_sum = [calctrimp(lap,altr) for lap in json_act['laps']]
-    sumtrimp = 0.0
-    for item in activity_sum:
-        logger.debug(item)
-        sumtrimp += item[0]
-    logger.debug(sumtrimp)
+    sumtrimp_act = sum(activity_sum)
+    logger.debug(sumtrimp_act)
+    return altr
 
 def speed_2_pace(speed):
     """Convert speed in km/hr to pace in s/km"""
@@ -335,5 +332,7 @@ def save_act_to_db(activities):
     
     logger.debug(db_data)
     #commit to DB
-    db.conn.executemany('INSERT OR IGNORE INTO activities VALUES (?,?,?,?,?)', db_data)
+    db.conn.executemany('INSERT OR IGNORE INTO activities VALUES \
+                        (?,?,?,?,?)',
+                         db_data)
     db.conn.commit()
