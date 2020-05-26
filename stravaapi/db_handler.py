@@ -30,7 +30,7 @@ class Ath_DB:
     
     def create_act_table(self):
         query = ('''CREATE TABLE activities'''+
-                " (id integer, start_date_local text, distance real,"+
+                " (id integer primary key, start_date_local text, distance real,"+
                 " elapsed_time integer, moving_time integer);")
         logger.debug(query)
         self.conn.execute(query)

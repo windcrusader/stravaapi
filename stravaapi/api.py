@@ -335,5 +335,5 @@ def save_act_to_db(activities):
     
     logger.debug(db_data)
     #commit to DB
-    db.conn.executemany('INSERT INTO activities VALUES (?,?,?,?,?)', db_data)
+    db.conn.executemany('INSERT OR IGNORE INTO activities VALUES (?,?,?,?,?)', db_data)
     db.conn.commit()
