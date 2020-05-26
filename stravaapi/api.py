@@ -184,10 +184,21 @@ def get_activities_detail(req, resp):
 
     for index, row in act_df.iterrows():
         logger.debug(f"Retrieving and saving detail for activity:\
-                     {row['id']}")
-        elev_st, laps = getactivitydetail(row['id'])
-        save_altr_to_db(row['id'], str(elev_st))
-        save_laps_to_db(row['id'], str(laps))
+                     {row['id']}")             
+        
+        #before calling the api check to see the data isn't already 
+        #downloaded
+        res = db.conn.execute("select id from act_elevation where id=?",
+                                (row['id'],))
+        res2 = db.conn.execute("select id from act_lap where id=?",
+                                (row['id'],))
+        resrow = res.fetchone()
+        resrow2 = res2.fetchone()
+        if resrow == None or resrow2 == None:
+            #missing the activity detailed data so get it.
+            elev_st, laps = getactivitydetail(row['id'])
+            save_altr_to_db(row['id'], str(elev_st))
+            save_laps_to_db(row['id'], str(laps))
         #below for stopping at one activity for debugging.
         #return
 
