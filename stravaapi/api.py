@@ -9,7 +9,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
 import datetime as dt
-from bisect import bisect_left, bisect_right
 import math
 from stravaapi import constants, db_handler
 
@@ -113,8 +112,10 @@ def getaltitude(id):
     r = requests.get(act_url,
                      params,
                      headers=headers)   
+    if r.raise_for_status() is None:
+        altr = r.json()                 
 
-    return r
+    return altr
 
 def calc_altdiff(resp, st_ind, end_ind):
     """calcs altitude difference"""
@@ -177,8 +178,8 @@ def get_activities_detail(req, resp):
     The lap and elevation data is then saved to the database in seperate
     tables.
     """
-    #open DB and read activities into a table
-    # Load the data into a DataFrame
+    #open DB and read saved activities into a table
+    #Load the data into a DataFrame
     act_df = pd.read_sql_query("SELECT * from activities", db.conn)
     logger.debug(act_df)
 
@@ -204,6 +205,8 @@ def get_activities_detail(req, resp):
 
 @api.route("/calctrimps")
 def calc_trimps(req, resp):
+    """Calculates the TRIMP value for all activities in the database
+    that have detailed elevation and lap data downloaded"""
     #open DB and read activities into a table
     #Load the data into a DataFrame
     act_df = pd.read_sql_query("SELECT * from activities", db.conn)
@@ -211,12 +214,23 @@ def calc_trimps(req, resp):
 
     for index, row in act_df.iterrows():
         #get lap data
+        logger.debug(row['id'])
         altr = db.conn.execute("select elev_stream from act_elevation where id=?",
                                 (row['id'],))
-        altr = json.loads(altr.fetchone()[0])
+        #check for a NULL return from the database
+        if (altr := json.loads(altr.fetchone()[0])) is None:
+            logger.debug(f"Altitude data missing for act:{row['id']}")
+            continue
+
+        logger.debug(altr)
+
         json_act = db.conn.execute("select lap_stream from act_lap where id=?",
                                 (row['id'],))
-        json_act = json.loads(json_act.fetchone()[0])
+        #check for a NULL return from the database   
+        if (json_act := json.loads(json_act.fetchone()[0])) is None:
+            logger.debug(f"lap detail data missing for act:{row['id']}")
+            continue               
+            
         logger.debug(json_act)
         activity_sum = [calctrimp(lap,altr) for lap in json_act]
         activity_trimp = sum([item[0] for item in activity_sum])
@@ -247,8 +261,6 @@ def getactivitydetail(id):
 
     #get the altitude stream
     altr = getaltitude(id)
-    #convert to json
-    altr = altr.json()
 
     return altr, json_act['laps']
 
