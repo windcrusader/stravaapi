@@ -210,8 +210,8 @@ def calc_trimps(req, resp):
     #open DB and read activities into a table
     #Load the data into a DataFrame
     act_df = pd.read_sql_query("SELECT * from activities", db.conn)
-    logger.debug(act_df)
-
+    #logger.debug(act_df)
+    trimps = []
     for index, row in act_df.iterrows():
         #get lap data
         logger.debug(row['id'])
@@ -222,7 +222,7 @@ def calc_trimps(req, resp):
             logger.debug(f"Altitude data missing for act:{row['id']}")
             continue
 
-        logger.debug(altr)
+        #logger.debug(altr)
 
         json_act = db.conn.execute("select lap_stream from act_lap where id=?",
                                 (row['id'],))
@@ -231,10 +231,16 @@ def calc_trimps(req, resp):
             logger.debug(f"lap detail data missing for act:{row['id']}")
             continue               
             
-        logger.debug(json_act)
+        #logger.debug(json_act)
         activity_sum = [calctrimp(lap,altr) for lap in json_act]
         activity_trimp = sum([item[0] for item in activity_sum])
         logger.debug(activity_trimp)
+        trimps.append(activity_trimp)
+        #add trimp score backinto df
+    act_df['TRIMP'] = trimps
+    
+    logger.debug(act_df)
+    return act_df
 
 
 def getactivitydetail(id):
