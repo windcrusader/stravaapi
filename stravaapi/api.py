@@ -239,9 +239,45 @@ def calc_trimps(req, resp):
         #add trimp score backinto df
     act_df['TRIMP'] = trimps
     
+    calc_trimp_graph(act_df)
     logger.debug(act_df)
-    return act_df
+    #return act_df
 
+def calc_trimp_graph(df):
+    """Calculates the trimp graph showing the three key metrics of training:
+    -fitness
+    -fatigue
+    -form
+
+    fitness is calculated as a cumulative sum of the TRIMP according to
+    the following equation:
+
+    fit(n+1) = fit(n) * exp(-1/45) + TRIMP(n+1)
+    fat(n+1) = fat(n) * exp(-1/15) + TRIMP(n+1)
+    form(n+1) = fit(n+1) - fat(n+1)
+    """
+
+    #todo function to create a df of days from the date of the first
+    #activity in the df to today + 30 days.
+    #it should sum the training load on each day
+    calc_trimp_days(df)
+
+def calc_trimp_days(df):
+    #get first day
+    firstday = df.loc[0]['start_date_local']
+    logger.debug(f"first day is:{firstday}")
+    #today
+    today = dt.datetime.now() + dt.timedelta(constants.FUT_DAYS)
+    logger.debug(f"{firstday[0:4]}-{firstday[5:7]}-{firstday[8:10]}")
+    dates = pd.date_range(f"{firstday[0:4]}-{firstday[5:7]}-{firstday[8:10]}",
+                         f"{today.year}-{today.month}-{today.day}"
+                        ).tolist()
+    #logger.debug(dates)
+
+
+    
+
+    
 
 def getactivitydetail(id):
     """Get a user activity by ID"""

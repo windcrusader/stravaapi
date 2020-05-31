@@ -16,3 +16,8 @@ PORT = 5039
 #using calculator at https://www.8020endurance.com/8020-zone-calculator/
 FTP = 3 * 60 + 56 #3:56/km based on parkrun on 18/01/20
 FTS = 15.254237288135592
+
+#Constants for TRIMP training load calculation
+ALPHA_CTL = 45
+ALPHA_ATL = 15
+FUT_DAYS = 30 #number of days to predict into the future
