@@ -20,4 +20,7 @@ FTS = 15.254237288135592
 #Constants for TRIMP training load calculation
 ALPHA_CTL = 45
 ALPHA_ATL = 15
+#
+K1 = 1 #training load weight used for form calculation
+K2 = 2 #fatigue weight used for form calculation
 FUT_DAYS = 30 #number of days to predict into the future

@@ -209,7 +209,9 @@ def calc_trimps(req, resp):
     that have detailed elevation and lap data downloaded"""
     #open DB and read activities into a table
     #Load the data into a DataFrame
-    act_df = pd.read_sql_query("SELECT * from activities", db.conn)
+    act_df = pd.read_sql_query("SELECT * from activities", db.conn,
+                                parse_dates={'start_date_local': {'utc':None}})
+                      
     #logger.debug(act_df)
     trimps = []
     for index, row in act_df.iterrows():
@@ -260,19 +262,80 @@ def calc_trimp_graph(df):
     #todo function to create a df of days from the date of the first
     #activity in the df to today + 30 days.
     #it should sum the training load on each day
-    calc_trimp_days(df)
+    trimp_days = calc_trimp_days(df)
+    fit = [0]
+    fat = [0]
+    form = [0]
+    for index, row in trimp_days.iterrows():
+        fit.append(fit[-1] * np.exp(-1/constants.ALPHA_CTL) + row['trimps'])
+        fat.append(fat[-1] * np.exp(-1/constants.ALPHA_ATL) + row['trimps'])
+        form.append(constants.K1 * fit[-1] - constants.K2 * fat[-1])
+    
+    trimp_days['fit'] = fit[1:]
+    trimp_days['fat'] = fat[1:]
+    trimp_days['form'] = form[1:]
+
+    logger.debug(trimp_days)
+
+    fig = go.Figure(data=[
+                    go.Scatter(name="Fitness",
+                                 x=trimp_days['date'],
+                                 y=trimp_days['fit']),
+                    go.Scatter(name="Fatigue",
+                                x=trimp_days['date'],
+                                 y=trimp_days['fat']),
+                    go.Scatter(name="Form",
+                                x=trimp_days['date'],
+                                 y=trimp_days['form']),             
+                    ],
+                    layout= {
+                'title': "TRIMPS",
+                "xaxis_title":"Date",
+                "yaxis_title":"TRIMP units"
+            })
+    fig.write_html('trimp_figure.html', auto_open=True)
+ 
+
 
 def calc_trimp_days(df):
     #get first day
+    #convert start_date_local into an actual datetime
+
+
     firstday = df.loc[0]['start_date_local']
     logger.debug(f"first day is:{firstday}")
     #today
     today = dt.datetime.now() + dt.timedelta(constants.FUT_DAYS)
-    logger.debug(f"{firstday[0:4]}-{firstday[5:7]}-{firstday[8:10]}")
-    dates = pd.date_range(f"{firstday[0:4]}-{firstday[5:7]}-{firstday[8:10]}",
-                         f"{today.year}-{today.month}-{today.day}"
-                        ).tolist()
+    logger.debug(f"{firstday.year}-{firstday.month}-{firstday.day}")
+    dates = pd.date_range(f"{firstday.year}-{firstday.month}-{firstday.day}",
+                         f"{today.year}-{today.month}-{today.day}",
+                        tz="UTC").tolist()
+    #pop the first date to get rid of it.
+    #logger.debug(dates.pop(0))
     #logger.debug(dates)
+    #make a new dictionary for storing the date and the trimps totals
+    datesf = []
+    trimps = []
+
+    #logger.debug(df.loc[0]['start_date_local'].tz)
+    #logger.debug(dates[0].tz)
+    for i, item in enumerate(dates):
+        
+        prev_day = item + dt.timedelta(-1)
+        logger.debug(prev_day)
+        #filter dataframe for all activities on this date
+        fil_date = ((df['start_date_local'] < item) & 
+                   (df['start_date_local'] > prev_day))
+        logger.debug(df[fil_date])
+        datesf.append(prev_day)
+        trimps.append(df[fil_date]['TRIMP'].sum())
+    
+    #logger.debug(tdct)
+    df_new = pd.DataFrame({'date':datesf,'trimps':trimps})
+    logger.debug(df_new)
+    return df_new
+        
+        
 
 
     
